@@ -1,14 +1,19 @@
 import json
+import logging
 import os
 import sys
+import time
 import traceback
 from os import environ
 from queue import Queue
 from uuid import uuid4
 
+from cachetools import TTLCache, cached
 from flask import Flask
+from flask import g
 from flask import request
 from flask.helpers import make_response
+from flask.wrappers import Response
 from larksuiteoapi import Config
 from larksuiteoapi import Context
 from larksuiteoapi import DOMAIN_FEISHU
@@ -27,13 +32,15 @@ from revChatGPT.typings import Error as ChatGPTError
 
 if not os.environ.get("API_URL", "").endswith("/v1/chat/completions"):
     os.environ['API_URL'] = os.environ['API_URL'] + "/v1/chat/completions"
-logger.level(environ.get("LOG_LEVEL","INFO").upper())
+logging.getLogger('werkzeug').setLevel(logging.WARNING)
+logger.level(environ.get("LOG_LEVEL", "INFO").upper())
 logger.configure(handlers=[dict(
     sink=sys.stdout,
     colorize=True,
     format='<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level> {message}</level>',
 )])
 app = Flask('bot')
+cache = TTLCache(maxsize=996, ttl=10080)
 
 
 def read(filename, default=None, mode="r", *args, **kwargs):
@@ -210,7 +217,6 @@ def handle_cmd(message_id, open_id, chat_id, text):
     # reset_chat(uuid)
     # return f"成功修改模型为：{model} ({ALL_MODELS[model]})\n\n对话已重新开始"
 
-
     # if cmd == "/rollback":
     #     if args:
     #         n = int(args[0])
@@ -257,6 +263,7 @@ def reset_chat(uuid):
         del chatbot.conversation[conversation_id]
 
 
+@cached(cache)
 def get_user_name(open_id):
     req_call = contact_service.users.get()
     req_call.set_user_id(open_id)
@@ -335,10 +342,10 @@ def reply_message(message_id, msg, card=False, finish=False):
     logger.debug(f"request id = {resp.get_request_id()}")
     logger.debug(f"http status code = {resp.get_http_status_code()}")
     if resp.code == 0:
-        logger.info(f"reply for {message_id}: {resp.data.message_id}")
+        logger.info(f"reply for {message_id}: {resp.data.message_id} msg:{msg}")
         return resp.data.message_id
     else:
-        logger.error(f"{resp.msg}: {resp.error}")
+        logger.error(f"{resp.msg}: {resp.error} ")
 
 
 def message_receive_handle(ctx: Context, conf: Config, event: MessageReceiveEvent) -> None:
@@ -373,6 +380,30 @@ def webhook_event():
     resp.data = oapi_resp.body
     resp.status_code = oapi_resp.status_code
     return resp
+
+
+@app.before_request
+def app_before_request():
+    g.app_start_time = time.time()
+
+
+@app.after_request
+def app_after_request(response: Response):
+    use_time = time.time() - g.get('app_start_time', time.time())
+    logger.info(
+        f"{request.method} {request.url} -- response:{response.status}, use_time:{use_time:.2f}s, size:{response.content_length}B")
+    response.headers["Set-Cookie"] = "SameSite=None"
+    response.headers['Access-Control-Allow-Credentials'] = "true"
+    response.headers['Access-Control-Allow-Headers'] = "*"
+    response.headers['Access-Control-Allow-Methods'] = 'PUT,POST,GET,DELETE,OPTIONS'
+    response.headers['Access-Control-Allow-Origin'] = "*"
+    if 'Origin' in request.headers:
+        response.headers['Access-Control-Allow-Origin'] = request.headers['Origin']
+    if 'Access-Control-Request-Headers' in request.headers:
+        response.headers['Access-Control-Allow-Headers'] = request.headers['Access-Control-Request-Headers']
+    if 'Access-Control-Request-Method' in request.headers:
+        response.headers['Access-Control-Request-Method'] = request.headers['Access-Control-Request-Method']
+    return response
 
 
 # 设置 "开发者后台" -> "事件订阅" 请求网址 URL：https://domain/webhook/chatgpt

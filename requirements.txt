@@ -2,3 +2,4 @@ Flask
 larksuite-oapi
 revChatGPT
 loguru
+cachetools
