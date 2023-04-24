@@ -41,6 +41,12 @@ logger.configure(handlers=[dict(
 )])
 app = Flask('bot')
 cache = TTLCache(maxsize=996, ttl=10080)
+CMD_HELP = '''
+/help: 查看命令说明
+/reset: 重新开始对话
+/title <title>: 修改对话标题，为空则表示清除设置
+/prompt <prompt>: 修改 Prompt，为空则表示清除设置，修改 Prompt 会自动重置对话
+'''
 
 
 def read(filename, default=None, mode="r", *args, **kwargs):
@@ -123,7 +129,7 @@ def worker(queue):
                     reply_message(message_id, f"{e.source}({e.code}): {e.message}")
                 except Exception as e:
                     traceback.print_exc()
-                    reply_message(message_id, f"服务器异常: {e}")
+                    reply_message(message_id, f"服务器异常: {type(e)}")
 
         return wrapper
 
@@ -161,12 +167,7 @@ def handle_cmd(message_id, open_id, chat_id, text):
     cmd = cmds[0]
     args = cmds[1:]
     if cmd == "/help":
-        msg = "/help: 查看命令说明\n"
-        msg += "/reset: 重新开始对话\n"
-        msg += "/title <title>: 修改对话标题，为空则表示清除设置\n"
-        msg += "/prompt <prompt>: 修改 Prompt，为空则表示清除设置，修改 Prompt 会自动重置对话\n"
-        msg += "/rollback <n>: 回滚 n 条消息\n"
-        return msg
+        return CMD_HELP
 
     conf = get_conf(uuid)
     conversation_id = conf.get("conversation_id")
@@ -277,6 +278,7 @@ def get_user_name(open_id):
     return resp.data.user.name
 
 
+@cached(cache)
 def get_group_name(chat_id):
     req_call = im_service.chats.get()
     req_call.set_chat_id(chat_id)
@@ -349,11 +351,10 @@ def reply_message(message_id, msg, card=False, finish=False):
 
 
 def message_receive_handle(ctx: Context, conf: Config, event: MessageReceiveEvent) -> None:
-    logger.debug(f"request id = {ctx.get_request_id()}")
-    logger.debug(f"header = {event.header}")
-    logger.debug(f"event = {event.event}")
+    logger.info(f"request_id = {ctx.get_request_id()}, event= ${event.event}")
 
     message = event.event.message
+    chat_type = event.event.chat_type
     if message.message_type != "text":
         logger.warning("unhandled message type")
         reply_message(message.message_id, "暂时只能处理文本消息")
@@ -363,7 +364,11 @@ def message_receive_handle(ctx: Context, conf: Config, event: MessageReceiveEven
 
     text: str = json.loads(message.content).get("text")
     logger.info(f"<{open_id}@{message.chat_id}> {message.message_id}: {text}")
+    if chat_type == 'group' and not text.startswith('@_user_1'):
+        logger.info(f"ignore :{text}")
+        return
     text = text.replace("@_user_1", "").strip()
+
 
     cmd_queue.put_nowait((message.message_id, open_id, message.chat_id, text))
 
@@ -392,17 +397,6 @@ def app_after_request(response: Response):
     use_time = time.time() - g.get('app_start_time', time.time())
     logger.info(
         f"{request.method} {request.url} -- response:{response.status}, use_time:{use_time:.2f}s, size:{response.content_length}B")
-    response.headers["Set-Cookie"] = "SameSite=None"
-    response.headers['Access-Control-Allow-Credentials'] = "true"
-    response.headers['Access-Control-Allow-Headers'] = "*"
-    response.headers['Access-Control-Allow-Methods'] = 'PUT,POST,GET,DELETE,OPTIONS'
-    response.headers['Access-Control-Allow-Origin'] = "*"
-    if 'Origin' in request.headers:
-        response.headers['Access-Control-Allow-Origin'] = request.headers['Origin']
-    if 'Access-Control-Request-Headers' in request.headers:
-        response.headers['Access-Control-Allow-Headers'] = request.headers['Access-Control-Request-Headers']
-    if 'Access-Control-Request-Method' in request.headers:
-        response.headers['Access-Control-Request-Method'] = request.headers['Access-Control-Request-Method']
     return response
 
 
