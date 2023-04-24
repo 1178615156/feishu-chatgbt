@@ -379,7 +379,7 @@ def message_receive_handle(ctx: Context, conf: Config, event: MessageReceiveEven
 MessageReceiveEventHandler.set_callback(conf, message_receive_handle)
 
 
-@app.route("/webhook/chatgpt", methods=["GET", "POST"])
+@app.route("/webhook/event", methods=["GET", "POST"])
 def webhook_event():
     oapi_request = OapiRequest(uri=request.path, body=request.data, header=OapiHeader(request.headers))
     resp = make_response()
