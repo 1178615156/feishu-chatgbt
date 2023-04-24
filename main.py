@@ -28,6 +28,16 @@ from revChatGPT.typings import Error as ChatGPTError
 
 from multiprocessing.pool import ThreadPool
 
+if not os.environ.get("API_URL", "").endswith("/v1/chat/completions"):
+    os.environ['API_URL'] = os.environ['API_URL'] + "/v1/chat/completions"
+logger.level(environ.get("LOG_LEVEL").upper() or "INFO")
+logger.configure(handlers=[dict(
+    sink=sys.stdout,
+    colorize=True,
+    format='<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level> {extra[app_user]} {message}</level>',
+)])
+app = Flask('bot')
+
 
 def read(filename, default=None, mode="r", *args, **kwargs):
     if not os.path.isfile(filename):
@@ -56,20 +66,12 @@ def write_json(filename, data, **kwargs):
 DB_FILE = "db.json"
 LOADING_IMG_KEY = environ.get("LOADING_IMG_KEY")
 
-ALL_MODELS = {
-    "default": "text-davinci-002-render-sha",
-    "legacy": "text-davinci-002-render-paid",
-    "gpt-4": "gpt-4",
-}
-DEFAULT_MODEL = ALL_MODELS["default"]
-
-logger.level(environ.get("LOG_LEVEL").upper() or "INFO")
-logger.configure(handlers=[dict(
-    sink=sys.stdout,
-    colorize=True,
-    format='<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level> {extra[app_user]} {message}</level>',
-)])
-log = logger
+# ALL_MODELS = {
+#     "default": "text-davinci-002-render-sha",
+#     "legacy": "text-davinci-002-render-paid",
+#     "gpt-4": "gpt-4",
+# }
+# DEFAULT_MODEL = ALL_MODELS["default"]
 
 app_settings = Config.new_internal_app_settings_from_env()
 
@@ -156,7 +158,6 @@ def handle_cmd(message_id, open_id, chat_id, text):
         msg = "/help: 查看命令说明\n"
         msg += "/reset: 重新开始对话\n"
         msg += "/title <title>: 修改对话标题，为空则表示清除设置\n"
-        msg += f"/model <model>: 修改使用的模型（{', '.join(ALL_MODELS)}），为空则显示当前模型，修改模型会自动重置对话\n"
         msg += "/prompt <prompt>: 修改 Prompt，为空则表示清除设置，修改 Prompt 会自动重置对话\n"
         msg += "/rollback <n>: 回滚 n 条消息\n"
         return msg
@@ -196,18 +197,17 @@ def handle_cmd(message_id, open_id, chat_id, text):
 
         reset_chat(uuid)
         return f"成功修改 Prompt 为：{prompt}\n\n对话已重新开始"
-    elif cmd == "/model":
-        if not args:
-            model = conf.get("model", DEFAULT_MODEL)
-            return f"当前模型为：{model}"
-
-        model = args[0].strip().lower()
-        if model not in ALL_MODELS:
-            return "模型不存在"
-
-        set_conf(uuid, dict(model=ALL_MODELS[model]))
-        reset_chat(uuid)
-        return f"成功修改模型为：{model} ({ALL_MODELS[model]})\n\n对话已重新开始"
+    # elif cmd == "/model":
+    #     if not args:
+    #         model = conf.get("model", DEFAULT_MODEL)
+    #         return f"当前模型为：{model}"
+        # model = args[0].strip().lower()
+        # if model not in ALL_MODELS:
+        #     return "模型不存在"
+        #
+        # set_conf(uuid, dict(model=ALL_MODELS[model]))
+        # reset_chat(uuid)
+        # return f"成功修改模型为：{model} ({ALL_MODELS[model]})\n\n对话已重新开始"
 
     if conversation_id is None:
         return "对话不存在"
@@ -236,11 +236,11 @@ def handle_msg(_, resp_message_id, title, uuid, text):
     conversation_id = conf.get("conversation_id") or uuid4()
     parent_ids = conf.get("parent_ids", [])
     parent_id = parent_ids[-1] if parent_ids else None
-    model = conf.get("model", DEFAULT_MODEL)
+    # model = conf.get("model", DEFAULT_MODEL)
 
     msg = ""
     last_time = time.time()
-    for data in chatbot.ask(text, conversation_id=conversation_id, parent_id=parent_id, model=model):
+    for data in chatbot.ask(text, conversation_id=conversation_id, parent_id=parent_id, ):
         msg = data["message"]
         if time.time() - last_time > 0.3:
             update_message(resp_message_id, msg)
@@ -377,8 +377,6 @@ def message_receive_handle(ctx: Context, conf: Config, event: MessageReceiveEven
 
 
 MessageReceiveEventHandler.set_callback(conf, message_receive_handle)
-
-app = Flask('bot')
 
 
 @app.route("/webhook/chatgpt", methods=["GET", "POST"])
