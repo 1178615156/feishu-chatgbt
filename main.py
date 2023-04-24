@@ -353,7 +353,7 @@ def message_receive_handle(ctx: Context, conf: Config, event: MessageReceiveEven
     logger.info(f"request_id = {ctx.get_request_id()}, event= ${event.event}")
 
     message = event.event.message
-    chat_type = event.event.chat_type
+    chat_type = event.event.message.chat_type
     if message.message_type != "text":
         logger.warning("unhandled message type")
         reply_message(message.message_id, "暂时只能处理文本消息")
