@@ -341,8 +341,7 @@ def reply_message(message_id, msg, card=False, finish=False):
     req_call.set_message_id(message_id)
 
     resp = req_call.do()
-    logger.debug(f"request id = {resp.get_request_id()}")
-    logger.debug(f"http status code = {resp.get_http_status_code()}")
+    logger.info(f"request_id:{resp.get_request_id()}, code:{resp.get_http_status_code()}, msg:{msg}")
     if resp.code == 0:
         logger.info(f"reply for {message_id}: {resp.data.message_id} msg:{msg}")
         return resp.data.message_id
@@ -368,7 +367,6 @@ def message_receive_handle(ctx: Context, conf: Config, event: MessageReceiveEven
         logger.info(f"ignore :{text}")
         return
     text = text.replace("@_user_1", "").strip()
-
 
     cmd_queue.put_nowait((message.message_id, open_id, message.chat_id, text))
 
