@@ -1,7 +1,6 @@
 import json
 import os
 import sys
-import time
 import traceback
 from os import environ
 from queue import Queue
@@ -25,8 +24,6 @@ from larksuiteoapi.service.im.v1 import model
 from loguru import logger
 from revChatGPT.V3 import Chatbot
 from revChatGPT.typings import Error as ChatGPTError
-
-from multiprocessing.pool import ThreadPool
 
 if not os.environ.get("API_URL", "").endswith("/v1/chat/completions"):
     os.environ['API_URL'] = os.environ['API_URL'] + "/v1/chat/completions"
@@ -73,9 +70,9 @@ LOADING_IMG_KEY = environ.get("LOADING_IMG_KEY")
 # }
 # DEFAULT_MODEL = ALL_MODELS["default"]
 
-app_settings = Config.new_internal_app_settings_from_env()
 
 # 当前访问的是飞书，使用默认存储、默认日志（Error级别），更多可选配置，请看：README.zh.md->如何构建整体配置（Config）
+app_settings = Config.new_internal_app_settings_from_env()
 conf = Config(DOMAIN_FEISHU, app_settings, log_level=LEVEL_DEBUG)
 
 im_service = ImService(conf)
@@ -84,9 +81,11 @@ contact_service = ContactService(conf)
 keys = ["email", "password", "session_token", "access_token", "proxy"]
 bot_conf = {k: environ.get(k.upper()) for k in keys}
 bot_conf = {k: v for k, v in bot_conf.items() if v}
-chatbot = Chatbot(bot_conf)
+chatbot = Chatbot(
+    api_key=os.environ.get("API_KEY", os.environ.get("OPENAI_API_KEY")),
+    system_prompt=os.environ.get("SYSTEM_PROMPT", "你是ChatGPT，OpenAI训练的大型语言模型。对话式回应")
+)
 
-pool = ThreadPool(8, )
 cmd_queue = Queue()
 msg_queue = Queue()
 
@@ -165,6 +164,9 @@ def handle_cmd(message_id, open_id, chat_id, text):
     conf = get_conf(uuid)
     conversation_id = conf.get("conversation_id")
 
+    if conversation_id is None:
+        return "对话不存在"
+
     if cmd == "/reset":
         reset_chat(uuid)
         return "对话已重新开始"
@@ -182,7 +184,6 @@ def handle_cmd(message_id, open_id, chat_id, text):
         if conversation_id is not None:
             name = get_user_name(open_id)
             title = f"{name} - {title}"
-            chatbot.change_title(conversation_id, title)
         return f"成功修改标题为：{title}"
     elif cmd == "/prompt":
         if args:
@@ -201,31 +202,29 @@ def handle_cmd(message_id, open_id, chat_id, text):
     #     if not args:
     #         model = conf.get("model", DEFAULT_MODEL)
     #         return f"当前模型为：{model}"
-        # model = args[0].strip().lower()
-        # if model not in ALL_MODELS:
-        #     return "模型不存在"
-        #
-        # set_conf(uuid, dict(model=ALL_MODELS[model]))
-        # reset_chat(uuid)
-        # return f"成功修改模型为：{model} ({ALL_MODELS[model]})\n\n对话已重新开始"
+    # model = args[0].strip().lower()
+    # if model not in ALL_MODELS:
+    #     return "模型不存在"
+    #
+    # set_conf(uuid, dict(model=ALL_MODELS[model]))
+    # reset_chat(uuid)
+    # return f"成功修改模型为：{model} ({ALL_MODELS[model]})\n\n对话已重新开始"
 
-    if conversation_id is None:
-        return "对话不存在"
 
-    if cmd == "/rollback":
-        if args:
-            n = int(args[0])
-        else:
-            n = 1
-
-        conf = get_conf(uuid)
-        parent_ids = conf["parent_ids"]
-        if not 1 <= n <= len(parent_ids):
-            return "回滚范围不合法"
-
-        conf["parent_ids"] = parent_ids[:-n]
-        set_conf(uuid, conf)
-        return f"成功回滚 {n} 条消息"
+    # if cmd == "/rollback":
+    #     if args:
+    #         n = int(args[0])
+    #     else:
+    #         n = 1
+    #
+    #     conf = get_conf(uuid)
+    #     parent_ids = conf["parent_ids"]
+    #     if not 1 <= n <= len(parent_ids):
+    #         return "回滚范围不合法"
+    #
+    #     conf["parent_ids"] = parent_ids[:-n]
+    #     set_conf(uuid, conf)
+    #     return f"成功回滚 {n} 条消息"
 
     return "无效命令"
 
@@ -233,43 +232,29 @@ def handle_cmd(message_id, open_id, chat_id, text):
 @worker(msg_queue)
 def handle_msg(_, resp_message_id, title, uuid, text):
     conf = get_conf(uuid)
-    conversation_id = conf.get("conversation_id") or uuid4()
-    parent_ids = conf.get("parent_ids", [])
-    parent_id = parent_ids[-1] if parent_ids else None
-    # model = conf.get("model", DEFAULT_MODEL)
-
-    msg = ""
-    last_time = time.time()
-    for data in chatbot.ask(text, conversation_id=conversation_id, parent_id=parent_id, ):
-        msg = data["message"]
-        if time.time() - last_time > 0.3:
-            update_message(resp_message_id, msg)
-            last_time = time.time()
+    conversation_id = conf.get("conversation_id") or str(uuid4())
+    msg = chatbot.ask(text, convo_id=conversation_id)
 
     if not msg:
         logger.warning(f"no response for conversation {conversation_id}")
         if conversation_id is None:
             return "获取对话结果失败：对话不存在"
         else:
-            return f"获取对话结果失败：\n{chatbot.get_msg_history(conversation_id)}"
+            return f"获取对话结果失败：\n{chatbot.conversation.get(conversation_id)}"
 
     update_message(resp_message_id, msg, finish=True)
 
-    parent_ids.append(data["parent_id"])
-    conf = dict(conversation_id=data["conversation_id"], parent_ids=parent_ids)
+    conf = dict(conversation_id=conversation_id)
     set_conf(uuid, conf)
-
-    # automatically rename everytime
-    chatbot.change_title(data["conversation_id"], title)
 
 
 def reset_chat(uuid):
-    chatbot.reset_chat()
     conf = get_conf(uuid)
     conversation_id = conf.get("conversation_id")
+    chatbot.reset(conversation_id)
     set_conf(uuid, dict(conversation_id=None, parent_ids=[]))
     if conversation_id is not None:
-        chatbot.delete_conversation(conversation_id)
+        del chatbot.conversation[conversation_id]
 
 
 def get_user_name(open_id):
