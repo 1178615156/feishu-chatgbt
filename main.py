@@ -350,7 +350,7 @@ def reply_message(message_id, msg, card=False, finish=False):
 
 
 def message_receive_handle(ctx: Context, conf: Config, event: MessageReceiveEvent) -> None:
-    logger.info(f"request_id = {ctx.get_request_id()}, event= ${event.event}")
+    logger.info(f"request_id = {ctx.get_request_id()}, event={event.event}")
 
     message = event.event.message
     chat_type = event.event.message.chat_type
