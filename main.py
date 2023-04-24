@@ -27,7 +27,7 @@ from revChatGPT.typings import Error as ChatGPTError
 
 if not os.environ.get("API_URL", "").endswith("/v1/chat/completions"):
     os.environ['API_URL'] = os.environ['API_URL'] + "/v1/chat/completions"
-logger.level(environ.get("LOG_LEVEL").upper() or "INFO")
+logger.level(environ.get("LOG_LEVEL","INFO").upper())
 logger.configure(handlers=[dict(
     sink=sys.stdout,
     colorize=True,
