@@ -95,6 +95,7 @@ keys = ["email", "password", "session_token", "access_token", "proxy"]
 bot_conf = {k: environ.get(k.upper()) for k in keys}
 bot_conf = {k: v for k, v in bot_conf.items() if v}
 chatbot = Chatbot(
+    timeout=os.environ.get("TIMEOUT", 10),
     api_key=os.environ.get("API_KEY", os.environ.get("OPENAI_API_KEY")),
     system_prompt=os.environ.get("SYSTEM_PROMPT", "你是ChatGPT，OpenAI训练的大型语言模型。对话式回应")
 )
@@ -320,8 +321,7 @@ def update_message(message_id, msg, finish=False):
     req_call.set_message_id(message_id)
 
     resp = req_call.do()
-    logger.debug(f"request id = {resp.get_request_id()}")
-    logger.debug(f"http status code = {resp.get_http_status_code()}")
+    logger.info(f"request_id:{resp.get_request_id()}, code:{resp.get_http_status_code()}, msg:{msg}")
     if resp.code == 0:
         logger.info(f"update {message_id} success")
     else:
