@@ -113,6 +113,7 @@ class FeishuActor:
     def when_text(self, text: str):
         if 'https://' in text:
             text = self.parser_url(text)
+            logger.info(f"ask:{text}")
 
         return self.chatbot.ask(text)
 
