@@ -107,13 +107,13 @@ class FeishuActor:
                 self.message = None
 
     def when_cmd(self, text: str):
-        cmd, remain = self.parser_cmd(text)
-        if cmd == '/reset':
+        if text.startswith('/text'):
             return '对话已重新开始'
-        if cmd == '/prompt':
-            self.chatbot = mk_chatbot(system_prompt=remain)
-            return f'设置Prompt:{remain}'
-        if cmd == '/history':
+        if text.startswith('/prompt'):
+            prompt = text[len('/prompt'):]
+            self.chatbot = mk_chatbot(system_prompt=prompt)
+            return f'设置Prompt:{prompt}'
+        if text.startswith('/history'):
             return str(self.chatbot.conversation['default'])
 
     def when_text(self, text: str):
@@ -122,13 +122,6 @@ class FeishuActor:
             logger.info(f"ask:{text}")
 
         return self.chatbot.ask(text)
-
-    def parser_cmd(self, text: str):
-        if text[0] == '/':
-            for i in range(len(text)):
-                if text[i] == ' ':
-                    return text[0:i].strip(), text[i + 1, :].strip()
-        return None, None
 
     def parser_url(self, text: str):
         url_index_start = text.index('https://')
