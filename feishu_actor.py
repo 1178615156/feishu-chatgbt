@@ -109,7 +109,7 @@ class FeishuActor:
                 self.message = None
 
     def when_cmd(self, text: str):
-        if text.startswith('/text'):
+        if text.startswith('/reset'):
             return '对话已重新开始'
         if text.startswith('/prompt'):
             prompt = text[len('/prompt'):]
