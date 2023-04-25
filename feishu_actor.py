@@ -102,6 +102,8 @@ class FeishuActor:
         if cmd == '/prompt':
             self.chatbot = mk_chatbot(system_prompt=remain)
             return f'设置Prompt:{remain}'
+        if cmd == '/history':
+            return str(self.chatbot.conversation['default'])
 
     def when_text(self, text: str):
         return self.chatbot.ask(text)
