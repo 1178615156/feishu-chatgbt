@@ -95,7 +95,7 @@ contact_service = ContactService(conf)
 chatbot = Chatbot(
     timeout=int(os.environ.get("TIMEOUT", 60)),
     api_key=os.environ.get("API_KEY", os.environ.get("OPENAI_API_KEY")),
-    system_prompt=os.environ.get("SYSTEM_PROMPT", "你是ChatGPT，OpenAI训练的大型语言模型。对话式回应")
+    system_prompt=os.environ.get("SYSTEM_PROMPT", "引导:\n你是ChatGPT，一个由 OpenAI 训练的大语言模型。")
 )
 
 cmd_queue = Queue()
@@ -362,7 +362,8 @@ def message_receive_handle(ctx: Context, conf: Config, event: MessageReceiveEven
     text: str = json.loads(message.content).get("text")
     # MentionEvent(key='@_user_1', id=UserId(user_id='41a28db4', open_id='ou_62b7549311513bf9dff697bc324f0a29', union_id='on_980255e5cf1c1252046b7e96f05b8b8f'), name='林伊婷', tenant_key='12a4cf08418cd758')
     mentions: List[MentionEvent] = event.event.message.mentions
-    mention_bot = [mention for mention in mentions if mention.name == os.environ.get("BOT_NAME")] if mentions else []
+    mentions = mentions if mentions else []
+    mention_bot = [mention for mention in mentions if mention.name == os.environ.get("BOT_NAME")]
 
     if chat_type == 'group' and not mention_bot:
         logger.info(f"ignore :{text}")
