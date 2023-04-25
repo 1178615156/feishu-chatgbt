@@ -20,3 +20,13 @@ docker run -it --name feisu-chatgbt \
   1178615156/feishu-chatgbt
 
 ```
+### 参数说明
+| 变量                 | 值                     |
+|--------------------|-----------------------|
+| API_URL            | openai的url，可以是各种中转代理  |
+| API_KEY            | key                   |
+| BOT_NAME           | 飞书机器人的名字，@他的是否才会回复    |
+| APP_ID             | 飞书APP_ID              |
+| APP_SECRET         | 飞书app_SECRET          |
+| VERIFICATION_TOKEN | 飞书VERIFICATION_TOKEN  |
+| ENCRYPT_KEY        | 飞书VERIFICATION_TOKEN  |
