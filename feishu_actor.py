@@ -67,7 +67,7 @@ def feishu_event_handler(ctx: Context, conf: Config, event: MessageReceiveEvent)
             title = get_group_name(chat_id)
         reply_message(message.message_id, f"开始新对话：{title}")
 
-    pool.apply_async(lambda :actor_cache[uuid].receive_message(text=text, sender=sender, message=message))
+    pool.apply_async(lambda: actor_cache[uuid].receive_message(text=text, sender=sender, message=message))
 
 
 class FeishuActor:
