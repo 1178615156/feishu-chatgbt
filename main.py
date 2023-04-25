@@ -6,6 +6,7 @@ import time
 import traceback
 from os import environ
 from queue import Queue
+from typing import List
 from uuid import uuid4
 
 from cachetools import TTLCache, cached
@@ -22,7 +23,7 @@ from larksuiteoapi.event import handle_event
 from larksuiteoapi.model import OapiHeader
 from larksuiteoapi.model import OapiRequest
 from larksuiteoapi.service.contact.v3 import Service as ContactService
-from larksuiteoapi.service.im.v1 import MessageReceiveEvent
+from larksuiteoapi.service.im.v1 import MessageReceiveEvent, MentionEvent
 from larksuiteoapi.service.im.v1 import MessageReceiveEventHandler
 from larksuiteoapi.service.im.v1 import Service as ImService
 from larksuiteoapi.service.im.v1 import model
@@ -91,9 +92,6 @@ conf = Config(DOMAIN_FEISHU, app_settings, log_level=LEVEL_DEBUG)
 im_service = ImService(conf)
 contact_service = ContactService(conf)
 
-keys = ["email", "password", "session_token", "access_token", "proxy"]
-bot_conf = {k: environ.get(k.upper()) for k in keys}
-bot_conf = {k: v for k, v in bot_conf.items() if v}
 chatbot = Chatbot(
     timeout=int(os.environ.get("TIMEOUT", 60)),
     api_key=os.environ.get("API_KEY", os.environ.get("OPENAI_API_KEY")),
@@ -350,7 +348,7 @@ def reply_message(message_id, msg, card=False, finish=False):
 
 
 def message_receive_handle(ctx: Context, conf: Config, event: MessageReceiveEvent) -> None:
-    logger.info(f"request_id = {ctx.get_request_id()}, event={event.event}")
+    logger.info(f"event={event.event}")
 
     message = event.event.message
     chat_type = event.event.message.chat_type
@@ -362,12 +360,17 @@ def message_receive_handle(ctx: Context, conf: Config, event: MessageReceiveEven
     open_id = event.event.sender.sender_id.open_id
 
     text: str = json.loads(message.content).get("text")
-    logger.info(f"<{open_id}@{message.chat_id}> {message.message_id}: {text}")
-    if chat_type == 'group' and not text.startswith('@_user_1'):
+    # MentionEvent(key='@_user_1', id=UserId(user_id='41a28db4', open_id='ou_62b7549311513bf9dff697bc324f0a29', union_id='on_980255e5cf1c1252046b7e96f05b8b8f'), name='林伊婷', tenant_key='12a4cf08418cd758')
+    mentions: List[MentionEvent] = event.event.message.mentions
+    mention_bot = [mention for mention in mentions if mention.name == os.environ.get("BOT_NAME")] if mentions else []
+
+    if chat_type == 'group' and not mention_bot:
         logger.info(f"ignore :{text}")
         return
-    text = text.replace("@_user_1", "").strip()
+    for mention in mentions:
+        text = text.replace(mention.key, mention.name if mention.name else '').strip()
 
+    logger.info(f"<{open_id}@{message.chat_id}> {message.message_id}: {text}")
     cmd_queue.put_nowait((message.message_id, open_id, message.chat_id, text))
 
 
