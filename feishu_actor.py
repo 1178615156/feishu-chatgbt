@@ -128,7 +128,7 @@ class FeishuActor:
         url_index_start = text.index('https://')
         url_index_stop = len(text)
         for i in range(url_index_start, len(text)):
-            if not text[i] in (string.digits + string.ascii_letters):
+            if not text[i] in (string.digits + string.ascii_letters+string.punctuation):
                 url_index_stop = i
 
         raw_url = text[url_index_start:url_index_stop]
