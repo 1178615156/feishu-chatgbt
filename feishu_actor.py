@@ -134,6 +134,7 @@ class FeishuActor:
         raw_url = text[url_index_start:url_index_stop]
         url = urlparse(raw_url)
         if 'feishu' in url.netloc:
+            logger.info(f'url:{url} , doc:{url.path.split("/")[-1]}')
             content = docx_service.documents.raw_content().set_document_id(url.path.split("/")[-1]).do().data.content
         else:
             content = requests.get(raw_url).text
