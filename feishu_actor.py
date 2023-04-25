@@ -19,8 +19,10 @@ from revChatGPT.V3 import Chatbot
 from revChatGPT.typings import Error as ChatGPTError
 
 from feishu_client import reply_message, update_message, get_user_name, get_group_name, docx_service
+from multiprocessing.pool import ThreadPool
 
 actor_cache: Dict[str, "FeishuActor"] = TTLCache(maxsize=1000, ttl=600)
+pool = ThreadPool()
 
 
 def mk_chatbot(timeout=None,
@@ -65,7 +67,7 @@ def feishu_event_handler(ctx: Context, conf: Config, event: MessageReceiveEvent)
             title = get_group_name(chat_id)
         reply_message(message.message_id, f"开始新对话：{title}")
 
-    actor_cache[uuid].receive_message(text=text, sender=sender, message=message)
+    pool.apply_async(lambda :actor_cache[uuid].receive_message(text=text, sender=sender, message=message))
 
 
 class FeishuActor:
