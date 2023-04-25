@@ -8,13 +8,16 @@ from larksuiteoapi.service.contact.v3 import Service as ContactService
 from larksuiteoapi.service.im.v1 import Service as ImService
 from larksuiteoapi.service.im.v1 import model
 from loguru import logger
+from larksuiteoapi.service.doc.v2 import Service as DocxService, model
+from larksuiteoapi import DOMAIN_FEISHU, Config, LEVEL_DEBUG
+from larksuiteoapi.service.docx.v1 import Service as DocxService, model
 
 app_settings = Config.new_internal_app_settings_from_env()
 conf = Config(DOMAIN_FEISHU, app_settings, log_level=LEVEL_DEBUG)
 im_service = ImService(conf)
 contact_service = ContactService(conf)
 cache = TTLCache(maxsize=996, ttl=10080)
-
+docx_service = DocxService(conf)
 
 def convert_to_card(msg, finish=False):
     elements = [{"tag": "div", "text": {"tag": "plain_text", "content": msg}}]

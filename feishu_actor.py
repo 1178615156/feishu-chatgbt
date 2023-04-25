@@ -1,9 +1,14 @@
 import json
 import os
+import string
 import threading
 import traceback
+import urllib
 from typing import List, Dict
+from urllib.parse import urlparse
 
+import requests
+import urllib3
 from cachetools import TTLCache
 from larksuiteoapi import Config
 from larksuiteoapi import Context
@@ -12,7 +17,7 @@ from loguru import logger
 from revChatGPT.V3 import Chatbot
 from revChatGPT.typings import Error as ChatGPTError
 
-from feishu_client import reply_message, update_message, get_user_name, get_group_name
+from feishu_client import reply_message, update_message, get_user_name, get_group_name, docx_service
 
 actor_cache: Dict[str, "FeishuActor"] = TTLCache(maxsize=1000, ttl=600)
 
@@ -106,10 +111,30 @@ class FeishuActor:
             return str(self.chatbot.conversation['default'])
 
     def when_text(self, text: str):
+        if 'https://' in text:
+            text = self.parser_url(text)
+
         return self.chatbot.ask(text)
 
     def parser_cmd(self, text: str):
-        for i in range(len(text)):
-            if text[i] == ' ':
-                return text[0:i].strip(), text[i + 1, :].strip()
+        if text[0] == '/':
+            for i in range(len(text)):
+                if text[i] == ' ':
+                    return text[0:i].strip(), text[i + 1, :].strip()
         return None, None
+
+    def parser_url(self, text: str):
+        url_index_start = text.index('https://')
+        url_index_stop = len(text)
+        for i in range(url_index_start, len(text)):
+            if not text[i] in (string.digits + string.ascii_letters):
+                url_index_stop = i
+
+        raw_url = text[url_index_start:url_index_stop]
+        url = urlparse(raw_url)
+        if 'feishu' in url.netloc:
+            content = docx_service.documents.raw_content().set_document_id(url.path.split("/")[-1]).do().data.content
+        else:
+            content = requests.get(raw_url).text
+
+        return text.replace(raw_url, content)
