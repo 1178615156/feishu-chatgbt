@@ -2,6 +2,7 @@ import json
 import os
 import string
 import threading
+import time
 import traceback
 import urllib
 from typing import List, Dict
@@ -76,13 +77,18 @@ class FeishuActor:
             api_key=os.environ.get("API_KEY", os.environ.get("OPENAI_API_KEY")),
             system_prompt=os.environ.get("SYSTEM_PROMPT", "引导:\n你是ChatGPT，一个由 OpenAI 训练的大语言模型。")
         )
+        self.msg_ids = TTLCache(maxsize=500, ttl=600)
 
     def receive_message(self, text: str, *, sender: EventSender, message: EventMessage):
         with self.lock:
             try:
+                message_id = message.message_id
+                if message_id in self.msg_ids:
+                    logger.info(f"duplicate:{message_id}")
+                    return
                 self.sender = sender
                 self.message = message
-                message_id = message.message_id
+                self.msg_ids[message_id] = time.time()
                 if text.startswith("/"):
                     result = self.when_cmd(text)
                     if result:
@@ -128,7 +134,7 @@ class FeishuActor:
         url_index_start = text.index('https://')
         url_index_stop = len(text)
         for i in range(url_index_start, len(text)):
-            if not text[i] in (string.digits + string.ascii_letters+string.punctuation):
+            if not text[i] in (string.digits + string.ascii_letters + string.punctuation):
                 url_index_stop = i
 
         raw_url = text[url_index_start:url_index_stop]
