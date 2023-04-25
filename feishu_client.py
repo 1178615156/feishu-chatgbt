@@ -1,16 +1,12 @@
 import json
 
 from cachetools import TTLCache, cached
-from larksuiteoapi import Config
-from larksuiteoapi import DOMAIN_FEISHU
-from larksuiteoapi import LEVEL_DEBUG
-from larksuiteoapi.service.contact.v3 import Service as ContactService
-from larksuiteoapi.service.im.v1 import Service as ImService
-from larksuiteoapi.service.im.v1 import model
-from loguru import logger
-from larksuiteoapi.service.doc.v2 import Service as DocxService, model
 from larksuiteoapi import DOMAIN_FEISHU, Config, LEVEL_DEBUG
-from larksuiteoapi.service.docx.v1 import Service as DocxService, model
+from larksuiteoapi.service.contact.v3 import Service as ContactService
+from larksuiteoapi.service.docx.v1 import Service as DocxService
+from larksuiteoapi.service.im.v1 import Service as ImService
+from larksuiteoapi.service.im.v1 import model as im_model
+from loguru import logger
 
 app_settings = Config.new_internal_app_settings_from_env()
 conf = Config(DOMAIN_FEISHU, app_settings, log_level=LEVEL_DEBUG)
@@ -18,6 +14,7 @@ im_service = ImService(conf)
 contact_service = ContactService(conf)
 cache = TTLCache(maxsize=996, ttl=10080)
 docx_service = DocxService(conf)
+
 
 def convert_to_card(msg, finish=False):
     elements = [{"tag": "div", "text": {"tag": "plain_text", "content": msg}}]
@@ -27,7 +24,7 @@ def convert_to_card(msg, finish=False):
 
 
 def update_message(message_id, msg, finish=False):
-    body = model.MessagePatchReqBody()
+    body = im_model.MessagePatchReqBody()
     body.content = json.dumps(convert_to_card(msg, finish))
 
     req_call = im_service.messages.patch(body)
@@ -42,7 +39,7 @@ def update_message(message_id, msg, finish=False):
 
 
 def reply_message(message_id, msg, card=False, finish=False):
-    body = model.MessageCreateReqBody()
+    body = im_model.MessageCreateReqBody()
     if card:
         body.content = json.dumps(convert_to_card(msg, finish))
         body.msg_type = "interactive"
