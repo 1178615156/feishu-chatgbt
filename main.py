@@ -23,7 +23,7 @@ from larksuiteoapi.event import handle_event
 from larksuiteoapi.model import OapiHeader
 from larksuiteoapi.model import OapiRequest
 from larksuiteoapi.service.contact.v3 import Service as ContactService
-from larksuiteoapi.service.im.v1 import MessageReceiveEvent, MentionEvent
+from larksuiteoapi.service.im.v1 import MessageReceiveEvent, MentionEvent, EventMessage, EventSender
 from larksuiteoapi.service.im.v1 import MessageReceiveEventHandler
 from larksuiteoapi.service.im.v1 import Service as ImService
 from larksuiteoapi.service.im.v1 import model
@@ -177,21 +177,6 @@ def handle_cmd(message_id, open_id, chat_id, text):
     if cmd == "/reset":
         reset_chat(uuid)
         return "对话已重新开始"
-    elif cmd == "/title":
-        if args:
-            title = args[0].strip()
-        else:
-            title = None
-
-        set_conf(uuid, dict(title=title))
-
-        if title is None:
-            return "成功清除标题设置"
-
-        if conversation_id is not None:
-            name = get_user_name(open_id)
-            title = f"{name} - {title}"
-        return f"成功修改标题为：{title}"
     elif cmd == "/prompt":
         if args:
             prompt = " ".join(args)
@@ -297,17 +282,7 @@ def get_group_name(chat_id):
 def convert_to_card(msg, finish=False):
     elements = [{"tag": "div", "text": {"tag": "plain_text", "content": msg}}]
     if not finish:
-        notes = []
-        if LOADING_IMG_KEY:
-            notes.append(
-                {
-                    "tag": "img",
-                    "img_key": LOADING_IMG_KEY,
-                    "alt": {"tag": "plain_text", "content": ""},
-                },
-            )
-        notes.append({"tag": "plain_text", "content": "typing..."})
-        elements.append({"tag": "note", "elements": notes})
+        elements.append({"tag": "note", "elements": [{"tag": "plain_text", "content": "typing..."}]})
     return {"config": {"wide_screen_mode": True}, "elements": elements}
 
 
@@ -348,20 +323,18 @@ def reply_message(message_id, msg, card=False, finish=False):
 
 
 def message_receive_handle(ctx: Context, conf: Config, event: MessageReceiveEvent) -> None:
-    logger.info(f"event={event.event}")
+    logger.info(f"{event.event}")
 
-    message = event.event.message
-    chat_type = event.event.message.chat_type
-    if message.message_type != "text":
-        logger.warning("unhandled message type")
-        reply_message(message.message_id, "暂时只能处理文本消息")
-        return
-
-    open_id = event.event.sender.sender_id.open_id
+    message: EventMessage = event.event.message
+    sender: EventSender = event.event.sender
+    chat_type = message.chat_type
+    open_id = sender.sender_id.open_id
+    chat_id = message.chat_id
+    uuid = f"{open_id}@{chat_id}"
 
     text: str = json.loads(message.content).get("text")
     # MentionEvent(key='@_user_1', id=UserId(user_id='41a28db4', open_id='ou_62b7549311513bf9dff697bc324f0a29', union_id='on_980255e5cf1c1252046b7e96f05b8b8f'), name='林伊婷', tenant_key='12a4cf08418cd758')
-    mentions: List[MentionEvent] = event.event.message.mentions
+    mentions: List[MentionEvent] = message.mentions
     mentions = mentions if mentions else []
     mention_bot = [mention for mention in mentions if mention.name == os.environ.get("BOT_NAME")]
 
@@ -370,9 +343,14 @@ def message_receive_handle(ctx: Context, conf: Config, event: MessageReceiveEven
         return
     for mention in mentions:
         text = text.replace(mention.key, mention.name if mention.name else '').strip()
+    if message.message_type != "text":
+        logger.warning("unhandled message type")
+        reply_message(message.message_id, "暂时只能处理文本消息")
+        return
 
     logger.info(f"<{open_id}@{message.chat_id}> {message.message_id}: {text}")
     cmd_queue.put_nowait((message.message_id, open_id, message.chat_id, text))
+
 
 
 MessageReceiveEventHandler.set_callback(conf, message_receive_handle)
