@@ -3,6 +3,7 @@
 
 ### 支持读取云文档内容
 ![云文档](./docs/1682430257256.png)
+![url](./docs/1682492831442.png)
 
 ## 飞书配置:
 见：https://github.com/ConnectAI-E/Feishu-OpenAI#%E8%AF%A6%E7%BB%86%E9%85%8D%E7%BD%AE%E6%AD%A5%E9%AA%A4
