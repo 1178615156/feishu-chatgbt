@@ -131,7 +131,7 @@ class FeishuActor:
             if text.startswith("/url"):
                 text = text.replace(url, self.request_url(url))
         if text.startswith("/url"):
-            text = text[len("/url"):]
+            text = text[len("/url"):].strip()
 
         return self.chatbot.ask(text)
 
