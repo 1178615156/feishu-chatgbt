@@ -23,6 +23,7 @@ from multiprocessing.pool import ThreadPool
 
 actor_cache: Dict[str, "FeishuActor"] = TTLCache(maxsize=1000, ttl=600)
 pool = ThreadPool()
+from inscriptis import get_text
 
 
 def mk_chatbot(timeout=None,
@@ -142,5 +143,6 @@ class FeishuActor:
             content = docx_service.documents.raw_content().set_document_id(url.path.split("/")[-1]).do().data.content
         else:
             content = requests.get(raw_url).text
+            content = get_text(content)
 
         return text.replace(raw_url, content)
