@@ -1,10 +1,11 @@
-FROM alpine:3 as model
-ARG HTTP_PROXY
-RUN export HTTP_PROXY=$HTTP_PROXY
-RUN export HTTPS_PROXY=$HTTP_PROXY
-
-RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
-RUN apk add unzip && apk add wget
+#FROM alpine:3 as model
+#ARG HTTP_PROXY
+#RUN export HTTP_PROXY=$HTTP_PROXY
+#RUN export HTTPS_PROXY=$HTTP_PROXY
+#
+#RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
+#RUN apk add unzip && apk add wget
+FROM ubuntu:20.04 as model
 RUN mkdir /app && cd /app
 RUN cd \app &&  \
     wget https://github.com/JaidedAI/EasyOCR/releases/download/v1.3/zh_sim_g2.zip -o zh_sim_g2.zip && \
