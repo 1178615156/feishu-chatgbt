@@ -3,7 +3,7 @@ ARG HTTP_PROXY
 ENV HTTP_PROXY=$HTTP_PROXY
 
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
-RUN apk install unzip
+RUN apk add unzip
 RUN cd \app &&  \
     wget https://github.com/JaidedAI/EasyOCR/releases/download/v1.3/zh_sim_g2.zip -o zh_sim_g2.zip && \
     unzip zh_sim_g2.zip && \
