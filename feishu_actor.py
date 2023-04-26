@@ -124,11 +124,14 @@ class FeishuActor:
 
     def when_text(self, text: str):
         urls = utils.find_urls(text)
+
         for url in urls:
             if 'feishu' in url:
                 text = text.replace(url, self.request_feishu_doc(url))
             if text.startswith("/url"):
                 text = text.replace(url, self.request_url(url))
+        if text.startswith("/url"):
+            text = text[len("/url"):]
 
         return self.chatbot.ask(text)
 
