@@ -1,6 +1,7 @@
 FROM alpine:3 as model
 ARG HTTP_PROXY
-ENV HTTP_PROXY=$HTTP_PROXY
+RUN export HTTP_PROXY=$HTTP_PROXY
+RUN export HTTPS_PROXY=$HTTP_PROXY
 
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
 RUN apk add unzip && apk add wget
