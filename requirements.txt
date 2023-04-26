@@ -1,5 +1,5 @@
-Flask
 larksuite-oapi==1.0.34
+Flask
 revChatGPT
 loguru
 cachetools

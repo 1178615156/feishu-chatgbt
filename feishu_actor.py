@@ -123,31 +123,23 @@ class FeishuActor:
             return str(self.chatbot.conversation['default'])
 
     def when_text(self, text: str):
-        if text.startswith("/url"):
-            urls = utils.find_urls(text)
-            urls_content = self.request_urls(urls)
-            for url, content in urls_content.items():
-                text = text.replace(url, content)
+        urls = utils.find_urls(text)
+        for url in urls:
+            if 'feishu' in url:
+                text = text.replace(url, self.request_feishu_doc(url))
+            if text.startswith("/url"):
+                text = text.replace(url, self.request_url(url))
 
         return self.chatbot.ask(text)
 
-    def request_urls(self, urls: List[str]):
-        '''
-        请求url获取纯文本
-        :param urls:
-        :return:
-        '''
-        result = {}
-        for raw_url in urls:
-            url = urlparse(raw_url)
-            if 'feishu' in url.netloc:
-                doc_id = url.path.split("/")[-1]
-                doc_type = url.path.split("/")[-2]
-                logger.info(f'url:{url} , doc_type:{doc_type}, doc_id:{doc_id}')
-                content = docx_service.documents.raw_content().set_document_id(doc_id).do().data.content
-            else:
-                content = urllib.request.urlopen(raw_url).read().decode('utf-8')
-                content = get_text(content)
-            result[raw_url] = content
+    def request_feishu_doc(self, raw_url):
+        url = urlparse(raw_url)
+        if 'feishu' in url.netloc:
+            doc_id = url.path.split("/")[-1]
+            doc_type = url.path.split("/")[-2]
+            logger.info(f'url:{url} , doc_type:{doc_type}, doc_id:{doc_id}')
+            return docx_service.documents.raw_content().set_document_id(doc_id).do().data.content
 
-        return result
+    def request_url(self, raw_url):
+        content = urllib.request.urlopen(raw_url).read().decode('utf-8')
+        return get_text(content)
