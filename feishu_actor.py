@@ -1,3 +1,4 @@
+import dataclasses
 import json
 import os
 import string
@@ -5,11 +6,11 @@ import threading
 import time
 import traceback
 import urllib
+import urllib.request
+from multiprocessing.pool import ThreadPool
 from typing import List, Dict
 from urllib.parse import urlparse
 
-import requests
-import urllib3
 from cachetools import TTLCache
 from larksuiteoapi import Config
 from larksuiteoapi import Context
@@ -19,7 +20,8 @@ from revChatGPT.V3 import Chatbot
 from revChatGPT.typings import Error as ChatGPTError
 
 from feishu_client import reply_message, update_message, get_user_name, get_group_name, docx_service
-from multiprocessing.pool import ThreadPool
+
+import utils
 
 actor_cache: Dict[str, "FeishuActor"] = TTLCache(maxsize=1000, ttl=600)
 pool = ThreadPool()
@@ -75,39 +77,36 @@ class FeishuActor:
     def __init__(self, uuid: str):
         self.uuid = str(uuid)
         self.lock = threading.Lock()
-        self.chatbot = Chatbot(
-            timeout=int(os.environ.get("TIMEOUT", 60)),
-            api_key=os.environ.get("API_KEY", os.environ.get("OPENAI_API_KEY")),
-            system_prompt=os.environ.get("SYSTEM_PROMPT", "引导:\n你是ChatGPT，一个由 OpenAI 训练的大语言模型。")
-        )
+        self.chatbot = mk_chatbot()
         self.msg_ids = TTLCache(maxsize=500, ttl=600)
+        self.continue_state = object()
 
     def receive_message(self, text: str, *, sender: EventSender, message: EventMessage):
-        with self.lock:
-            try:
-                message_id = message.message_id
-                if message_id in self.msg_ids:
-                    logger.info(f"duplicate:{message_id}")
-                    return
-                self.sender = sender
-                self.message = message
-                self.msg_ids[message_id] = time.time()
-                if text.startswith("/"):
-                    result = self.when_cmd(text)
-                    if result:
-                        reply_message(message.message_id, result)
-                else:
-                    resp_message_id = reply_message(message.message_id, "", card=True)
-                    result = self.when_text(text)
-                    update_message(resp_message_id, result, finish=True)
-            except ChatGPTError as e:
-                reply_message(message_id, f"{e.source}({e.code}): {e.message}")
-            except Exception as e:
-                traceback.print_exc()
-                reply_message(message_id, f"服务器异常: {type(e)}")
-            finally:
-                self.sender = None
-                self.message = None
+        message_id = message.message_id
+        self.sender = sender
+        self.message = message
+        try:
+            self.lock.locked()
+            if message_id in self.msg_ids:
+                logger.info(f"duplicate:{message_id}")
+                return
+            self.msg_ids[message_id] = time.time()
+            cmd_result = self.when_cmd(text)
+            if cmd_result:
+                reply_message(message.message_id, cmd_result)
+
+            resp_message_id = reply_message(message.message_id, "", card=True)
+            result = self.when_text(text)
+            update_message(resp_message_id, result, finish=True)
+        except ChatGPTError as e:
+            reply_message(message_id, f"{e.source}({e.code}): {e.message}")
+        except Exception as e:
+            traceback.print_exc()
+            reply_message(message_id, f"服务器异常: {type(e)}")
+        finally:
+            self.lock.release()
+            self.sender = None
+            self.message = None
 
     def when_cmd(self, text: str):
         if text.startswith('/reset'):
@@ -118,31 +117,36 @@ class FeishuActor:
             if prompt == 'debug':
                 prompt = '假装你是一个优秀的程序员,我会提供程序运行的log,你需要找出错误原因以及对应的解决方法.'
             self.chatbot = mk_chatbot(system_prompt=prompt)
-            return f'设置Prompt:{prompt}'
+            return f'设置Prompt: {prompt}'
         if text.startswith('/history'):
             return str(self.chatbot.conversation['default'])
 
     def when_text(self, text: str):
-        if 'https://' in text:
-            text = self.parser_url(text)
-            logger.info(f"ask:{text}")
+        if text.startswith("/url"):
+            urls = utils.find_urls(text)
+            urls_content = self.request_urls(urls)
+            for url, content in urls_content.items():
+                text = text.replace(url, content)
 
         return self.chatbot.ask(text)
 
-    def parser_url(self, text: str):
-        url_index_start = text.index('https://')
-        url_index_stop = len(text)
-        for i in range(url_index_start, len(text)):
-            if not text[i] in (string.digits + string.ascii_letters + string.punctuation):
-                url_index_stop = i
+    def request_urls(self, urls: List[str]):
+        '''
+        请求url获取纯文本
+        :param urls:
+        :return:
+        '''
+        result = {}
+        for raw_url in urls:
+            url = urlparse(raw_url)
+            if 'feishu' in url.netloc:
+                doc_id = url.path.split("/")[-1]
+                doc_type = url.path.split("/")[-2]
+                logger.info(f'url:{url} , doc_type:{doc_type}, doc_id:{doc_id}')
+                content = docx_service.documents.raw_content().set_document_id(doc_id).do().data.content
+            else:
+                content = urllib.request.urlopen(raw_url).read().decode('utf-8')
+                content = get_text(content)
+            result[raw_url] = content
 
-        raw_url = text[url_index_start:url_index_stop]
-        url = urlparse(raw_url)
-        if 'feishu' in url.netloc:
-            logger.info(f'url:{url} , doc:{url.path.split("/")[-1]}')
-            content = docx_service.documents.raw_content().set_document_id(url.path.split("/")[-1]).do().data.content
-        else:
-            content = requests.get(raw_url).text
-            content = get_text(content)
-
-        return text.replace(raw_url, content)
+        return result
