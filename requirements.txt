@@ -3,3 +3,4 @@ larksuite-oapi==1.0.34
 revChatGPT
 loguru
 cachetools
+inscriptis
