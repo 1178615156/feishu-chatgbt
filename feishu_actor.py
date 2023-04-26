@@ -94,6 +94,7 @@ class FeishuActor:
             cmd_result = self.when_cmd(text)
             if cmd_result:
                 reply_message(message.message_id, cmd_result)
+                return
 
             resp_message_id = reply_message(message.message_id, "", card=True)
             result = self.when_text(text)
