@@ -1,7 +1,5 @@
-import dataclasses
 import json
 import os
-import string
 import threading
 import time
 import traceback
@@ -12,6 +10,7 @@ from typing import List, Dict
 from urllib.parse import urlparse
 
 from cachetools import TTLCache
+from inscriptis import get_text
 from larksuiteoapi import Config
 from larksuiteoapi import Context
 from larksuiteoapi.service.im.v1 import MessageReceiveEvent, MentionEvent, EventMessage, EventSender
@@ -19,13 +18,11 @@ from loguru import logger
 from revChatGPT.V3 import Chatbot
 from revChatGPT.typings import Error as ChatGPTError
 
+import utils
 from feishu_client import reply_message, update_message, get_user_name, get_group_name, docx_service
 
-import utils
-
 actor_cache: Dict[str, "FeishuActor"] = TTLCache(maxsize=1000, ttl=600)
-pool = ThreadPool()
-from inscriptis import get_text
+pool = ThreadPool(8)
 
 
 def mk_chatbot(timeout=None,
