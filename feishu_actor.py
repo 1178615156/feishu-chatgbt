@@ -113,7 +113,7 @@ class FeishuActor:
             self.chatbot = mk_chatbot()
             return '对话已重新开始'
         if text.startswith('/prompt'):
-            prompt = text[len('/prompt'):]
+            prompt = text[len('/prompt'):].strip()
             if prompt == 'debug':
                 prompt = '假装你是一个优秀的程序员,我会提供程序运行的log,你需要找出错误原因以及对应的解决方法.'
             self.chatbot = mk_chatbot(system_prompt=prompt)
