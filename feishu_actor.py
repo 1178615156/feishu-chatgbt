@@ -118,7 +118,7 @@ class FeishuActor:
                                   msg="文件太长,只支持2000字符")
                     return
                 else:
-                    reply_message(message_id, f"read file:{file_name} \n{ack_text}")
+                    reply_message(message_id, f"read file:\n{ack_text}")
 
             if message.message_type == 'image':
                 msg_file = json.loads(message.content)
@@ -134,7 +134,7 @@ class FeishuActor:
                 )
                 result = FeishuService().orc_service(image)
                 ack_text = "\n".join(result)
-                reply_message(message_id,f"orc:{ack_text}")
+                reply_message(message_id,f"orc:\n{ack_text}")
             if ack_text:
                 self.match(ack_text)
             else:
