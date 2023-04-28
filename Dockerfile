@@ -1,11 +1,12 @@
 FROM alpine:3 as model
 ARG HTTP_PROXY
-ENV HTTP_PROXY=$HTTP_PROXY \
-    HTTPS_PROXY=$HTTP_PROXY
-
-RUN echo "http:$HTTP_PROXY , https:$HTTPS_PROXY"
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
 RUN apk add unzip && apk add wget
+
+ENV HTTP_PROXY=$HTTP_PROXY \
+    HTTPS_PROXY=$HTTP_PROXY \
+    DNS_PROXY=$HTTP_PROXY
+RUN echo "http:$HTTP_PROXY , https:$HTTPS_PROXY"
 RUN mkdir /app && cd /app
 RUN wget  https://github.com/JaidedAI/EasyOCR/releases/download/v1.3/zh_sim_g2.zip && \
     unzip zh_sim_g2.zip && \
