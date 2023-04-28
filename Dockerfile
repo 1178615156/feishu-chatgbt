@@ -35,7 +35,7 @@ COPY requirements.txt /app/requirements.txt
 # 常用包缓存,避免重复下载
 RUN pip install --no-cache-dir -r requirements.txt
 COPY . /app
-COPY --from=model /app ~/.EasyOCR/model
+#COPY --from=model /app ~/.EasyOCR/model
 CMD ["python","main.py"]
 
 
