@@ -84,6 +84,7 @@ class FeishuActor:
         self.sender = sender
         self.message = message
         try:
+            self.lock.locked()
             ack_text = ''
             if message_id in self.msg_ids:
                 logger.info(f"duplicate:{message_id}")
