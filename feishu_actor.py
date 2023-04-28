@@ -19,7 +19,7 @@ from revChatGPT.V3 import Chatbot
 from revChatGPT.typings import Error as ChatGPTError
 
 import utils
-from feishu_client import reply_message, update_message, get_user_name, get_group_name, docx_service
+from feishu_client import reply_message, update_message, get_user_name, get_group_name, docx_service, im_service
 
 actor_cache: Dict[str, "FeishuActor"] = TTLCache(maxsize=1000, ttl=600)
 pool = ThreadPool(8)
@@ -36,7 +36,16 @@ def mk_chatbot(timeout=None,
     )
 
 
-def feishu_event_handler(ctx: Context, conf: Config, event: MessageReceiveEvent):
+def feishu_event_handler(ctx: Context,
+                         conf: Config,
+                         event: MessageReceiveEvent):
+    '''
+    接收飞书事件,匹配对应的actor
+    :param ctx:
+    :param conf:
+    :param event:
+    :return:
+    '''
     logger.info(f"{event.event}")
 
     message: EventMessage = event.event.message
@@ -45,20 +54,12 @@ def feishu_event_handler(ctx: Context, conf: Config, event: MessageReceiveEvent)
     chat_id = message.chat_id
     chat_type = message.chat_type
     uuid = f"{open_id}@{chat_id}"
-    text: str = json.loads(message.content).get("text")
     mentions: List[MentionEvent] = message.mentions
-    mentions = mentions if mentions else []
-    mention_bot = [mention for mention in mentions if mention.name == os.environ.get("BOT_NAME")]
-
+    mention_bot = [mention for mention in (mentions if mentions else []) if mention.name == os.environ.get("BOT_NAME")]
+    # 判断有无@机器人
     if chat_type == 'group' and not mention_bot:
-        logger.info(f"ignore :{text}")
+        logger.info(f"ignore :{message.content}")
         return
-    if message.message_type != "text":
-        logger.warning("unhandled message type")
-        reply_message(message.message_id, "暂时只能处理文本消息")
-        return
-    for mention in mentions:
-        text = text.replace(mention.key, mention.name if mention.name else '').strip()
 
     if uuid not in actor_cache:
         actor_cache[uuid] = FeishuActor(uuid=uuid)
@@ -68,7 +69,7 @@ def feishu_event_handler(ctx: Context, conf: Config, event: MessageReceiveEvent)
         logger.info(f"{message.message_id} 开始新对话：{title}")
         # reply_message(message.message_id, f"开始新对话：{title}")
 
-    pool.apply_async(lambda: actor_cache[uuid].receive_message(text=text, sender=sender, message=message))
+    pool.apply_async(lambda: actor_cache[uuid].receive(sender=sender, message=message))
 
 
 class FeishuActor:
@@ -77,26 +78,51 @@ class FeishuActor:
         self.lock = threading.Lock()
         self.chatbot = mk_chatbot()
         self.msg_ids = TTLCache(maxsize=500, ttl=600)
-        self.continue_state = object()
 
-    def receive_message(self, text: str, *, sender: EventSender, message: EventMessage):
+    def receive(self, sender: EventSender, message: EventMessage):
         message_id = message.message_id
         self.sender = sender
         self.message = message
         try:
-            self.lock.locked()
+            ack_text = ''
             if message_id in self.msg_ids:
                 logger.info(f"duplicate:{message_id}")
                 return
-            self.msg_ids[message_id] = time.time()
-            cmd_result = self.when_cmd(text)
-            if cmd_result:
-                reply_message(message.message_id, cmd_result)
-                return
+            else:
+                self.msg_ids[message_id] = time.time()
 
-            resp_message_id = reply_message(message.message_id, "", card=True)
-            result = self.when_text(text)
-            update_message(resp_message_id, result, finish=True)
+            # 文本数据
+            if message.message_type == 'text':
+                ack_text: str = json.loads(message.content).get("text")
+                mentions: List[MentionEvent] = message.mentions
+                mentions = mentions if mentions else []
+                for mention in mentions:
+                    ack_text = ack_text.replace(mention.key, mention.name if mention.name else '').strip()
+
+            # 文件
+            if message.message_type == 'file':
+                msg_file = json.loads(message.content)
+                file_key = msg_file.get('file_key')
+                file_name = msg_file.get("file_name")
+                ack_text = (
+                    im_service.message_resources.get()
+                        .set_type("file")
+                        .set_message_id(message_id)
+                        .set_file_key(file_key)
+                        .do()
+                        .data
+                        .decode('UTF-8')
+                )
+                if len(ack_text) > 2048:
+                    reply_message(message_id=message.message_id,
+                                  msg="文件太长,只支持2000字符")
+                    return
+                else:
+                    reply_message(message_id, f"read file:{file_name} \n{ack_text}")
+
+            if ack_text:
+                self.match(ack_text)
+
         except ChatGPTError as e:
             reply_message(message_id, f"{e.source}({e.code}): {e.message}")
         except Exception as e:
@@ -107,7 +133,18 @@ class FeishuActor:
             self.sender = None
             self.message = None
 
-    def when_cmd(self, text: str):
+    def match(self, text):
+        message = self.message
+        cmd_result = self.match_cmd(text)
+        if cmd_result:
+            reply_message(message.message_id, cmd_result)
+            return
+
+        resp_message_id = reply_message(message.message_id, "", card=True)
+        result = self.match_text(text)
+        update_message(resp_message_id, result, finish=True)
+
+    def match_cmd(self, text: str):
         if text.startswith('/reset'):
             self.chatbot = mk_chatbot()
             return '对话已重新开始'
@@ -120,9 +157,8 @@ class FeishuActor:
         if text.startswith('/history'):
             return str(self.chatbot.conversation['default'])
 
-    def when_text(self, text: str):
+    def match_text(self, text: str):
         urls = utils.find_urls(text)
-
         for url in urls:
             if 'feishu' in url:
                 text = text.replace(url, self.request_feishu_doc(url))
