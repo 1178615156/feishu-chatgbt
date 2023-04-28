@@ -177,9 +177,11 @@ class FeishuActor:
                 doc_type = url.path.split("/")[-2]
                 logger.info(f'url:{url} , doc_type:{doc_type}, doc_id:{doc_id}')
                 return docx_service.documents.raw_content().set_document_id(doc_id).do().data.content
-        except Exception as e :
-            logger.exception(e)
+        except Exception as e:
+            traceback.print_exc()
+            # logger.exception(e)
         return raw_url
+
     def request_url(self, raw_url):
         content = urllib.request.urlopen(raw_url).read().decode('utf-8')
         return get_text(content)
