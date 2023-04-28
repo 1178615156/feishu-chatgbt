@@ -29,6 +29,7 @@ logger.configure(handlers=[dict(
 )])
 app = Flask('bot')
 
+# 注册事件回调,有消息会调用`feishu_event_handler`
 MessageReceiveEventHandler.set_callback(conf, feishu_event_handler)
 
 

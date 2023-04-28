@@ -170,13 +170,16 @@ class FeishuActor:
         return self.chatbot.ask(text)
 
     def request_feishu_doc(self, raw_url):
-        url = urlparse(raw_url)
-        if 'feishu' in url.netloc:
-            doc_id = url.path.split("/")[-1]
-            doc_type = url.path.split("/")[-2]
-            logger.info(f'url:{url} , doc_type:{doc_type}, doc_id:{doc_id}')
-            return docx_service.documents.raw_content().set_document_id(doc_id).do().data.content
-
+        try:
+            url = urlparse(raw_url)
+            if 'feishu' in url.netloc:
+                doc_id = url.path.split("/")[-1]
+                doc_type = url.path.split("/")[-2]
+                logger.info(f'url:{url} , doc_type:{doc_type}, doc_id:{doc_id}')
+                return docx_service.documents.raw_content().set_document_id(doc_id).do().data.content
+        except Exception as e :
+            logger.exception(e)
+        return raw_url
     def request_url(self, raw_url):
         content = urllib.request.urlopen(raw_url).read().decode('utf-8')
         return get_text(content)
