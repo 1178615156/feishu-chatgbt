@@ -3,6 +3,7 @@ ARG HTTP_PROXY
 ENV HTTP_PROXY=$HTTP_PROXY \
     HTTPS_PROXY=$HTTP_PROXY
 
+RUN echo "http:$HTTP_PROXY , https:$HTTPS_PROXY"
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
 RUN apk add unzip && apk add wget
 RUN mkdir /app && cd /app
