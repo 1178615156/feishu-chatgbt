@@ -17,7 +17,7 @@ RUN wget  "${GITHUB_PROXY}https://github.com/JaidedAI/EasyOCR/releases/download/
     rm -f craft_mlt_25k.zip
 
 
-FROM python:3.11-slim-bullseye
+FROM python:3.10-slim-bullseye
 WORKDIR /app
 ENV LC_ALL=en_US.UTF-8 \
     LANG=en_US.UTF-8 \
