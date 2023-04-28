@@ -1,4 +1,9 @@
+import dev_env
+
+print(dev_env)
+
 from utils import find_urls
+from feishu_client import im_service, FeishuService
 
 
 def test_find_urls():
@@ -7,20 +12,28 @@ def test_find_urls():
     assert urls == ['https://1.1.1.1/996', 'https://baidu.com/996']
 
 
-import requests
+def test_file():
+    f = (im_service.message_resources.get()
+         .set_type("file")
+         .set_message_id('om_52a82a88f537157c86e67a1909e4507e')
+         .set_file_key('file_v2_0304d2a0-cebb-4a82-a624-7c474d61d23g')
+         .do())
 
-print(requests.get('http://www.scio.gov.cn/37234/Document/1738206/1738206.htm',
+    print(f)
+    print(f.data.decode('UTF-8'))
+    print(len(f.data.decode('UTF-8')))
 
-                   headers={
-                       'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
-                       'Accept-Encoding': 'gzip, deflate',
-                       'Accept-Language': 'zh-CN,zh;q=0.9,en-US;q=0.8,en;q=0.7',
-                       'Cache-Control': 'no-cache',
-                       'Connection': 'keep-alive',
-                       'Cookie':
-                       'jsluid_h=b29dc15f44783cb6e3bc5a12d2787154; Hm_lvt_7cd4be5b075ad771f065c6fe4059883a=1681177476; Hm_lpvt_7cd4be5b075ad771f065c6fe4059883a=1682495300',
-                   'Pragma': 'no-cache',
-'Referer': 'http://www.scio.gov.cn/index.htm',
-'Upgrade-Insecure-Requests': '1',
-'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36'
-}).text)
+
+def test_img():
+    f = (im_service.message_resources.get()
+         .set_type("image")
+         .set_message_id('om_25acc0195df7f9db2f679623dfe17801')
+         .set_file_key('img_v2_3adfd087-2f46-4da8-9642-8f7f71ece67g')
+         .do())
+
+    print(f)
+    result = FeishuService().orc_service(f.data)
+    print(result)
+
+
+test_img()

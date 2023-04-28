@@ -19,7 +19,7 @@ from revChatGPT.V3 import Chatbot
 from revChatGPT.typings import Error as ChatGPTError
 
 import utils
-from feishu_client import reply_message, update_message, get_user_name, get_group_name, docx_service, im_service
+from feishu_client import reply_message, update_message, docx_service, im_service, FeishuService
 
 actor_cache: Dict[str, "FeishuActor"] = TTLCache(maxsize=1000, ttl=600)
 pool = ThreadPool(8)
@@ -63,11 +63,11 @@ def feishu_event_handler(ctx: Context,
 
     if uuid not in actor_cache:
         actor_cache[uuid] = FeishuActor(uuid=uuid)
-        title = get_user_name(open_id)
-        if title is None:
-            title = get_group_name(chat_id)
-        logger.info(f"{message.message_id} 开始新对话：{title}")
-        # reply_message(message.message_id, f"开始新对话：{title}")
+        # title = get_user_name(open_id)
+        # if title is None:
+        #     title = get_group_name(chat_id)
+        # logger.info(f"{message.message_id} 开始新对话：{title}")
+        reply_message(message.message_id, f"开始新对话：{uuid}")
 
     pool.apply_async(lambda: actor_cache[uuid].receive(sender=sender, message=message))
 
@@ -111,8 +111,7 @@ class FeishuActor:
                         .set_message_id(message_id)
                         .set_file_key(file_key)
                         .do()
-                        .data
-                        .decode('UTF-8')
+                        .data.decode('UTF-8')
                 )
                 if len(ack_text) > 2048:
                     reply_message(message_id=message.message_id,
@@ -121,8 +120,24 @@ class FeishuActor:
                 else:
                     reply_message(message_id, f"read file:{file_name} \n{ack_text}")
 
+            if message.message_type == 'image':
+                msg_file = json.loads(message.content)
+                file_key = msg_file.get('file_key')
+                file_name = msg_file.get("file_name")
+                image = (
+                    im_service.message_resources.get()
+                        .set_type("image")
+                        .set_message_id(message_id)
+                        .set_file_key(file_key)
+                        .do()
+                        .data
+                )
+                result = FeishuService().orc_service(image)
+                ack_text = "\n".join(result)
             if ack_text:
                 self.match(ack_text)
+            else:
+                reply_message(message_id, f"未知消息:{message.content}")
 
         except ChatGPTError as e:
             reply_message(message_id, f"{e.source}({e.code}): {e.message}")

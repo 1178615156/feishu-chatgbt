@@ -1,4 +1,6 @@
+import base64
 import json
+from typing import List
 
 from cachetools import TTLCache, cached
 from larksuiteoapi import DOMAIN_FEISHU, Config, LEVEL_DEBUG
@@ -6,14 +8,25 @@ from larksuiteoapi.service.contact.v3 import Service as ContactService
 from larksuiteoapi.service.docx.v1 import Service as DocxService
 from larksuiteoapi.service.im.v1 import Service as ImService
 from larksuiteoapi.service.im.v1 import model as im_model
+from larksuiteoapi.service.optical_char_recognition.v1 import Service as OCRService
+from larksuiteoapi.service.optical_char_recognition.v1 import model as ocr_model
 from loguru import logger
 
+cache = TTLCache(maxsize=996, ttl=10080)
 app_settings = Config.new_internal_app_settings_from_env()
 conf = Config(DOMAIN_FEISHU, app_settings, log_level=LEVEL_DEBUG)
 im_service = ImService(conf)
 contact_service = ContactService(conf)
-cache = TTLCache(maxsize=996, ttl=10080)
 docx_service = DocxService(conf)
+ocr_service = OCRService(conf)
+
+
+class FeishuService:
+    def orc_service(self, file_bytes: bytes) -> List[str]:
+        img_base64 = base64.encodebytes(file_bytes).decode("UTF-8").replace("\n", "")
+        body = ocr_model.ImageBasicRecognizeReqBody()
+        body.image = img_base64
+        return ocr_service.images.basic_recognize(body=body).do().data.text_list
 
 
 def convert_to_card(msg, finish=False):
