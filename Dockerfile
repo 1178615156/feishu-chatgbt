@@ -25,6 +25,8 @@ ENV LC_ALL=en_US.UTF-8 \
     TZ=Asia/Shanghai \
     HOST=0.0.0.0
 RUN pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple
+
+RUN pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
 RUN pip install --no-cache-dir easyocr
 
 COPY sources.list /etc/apt/sources.list
