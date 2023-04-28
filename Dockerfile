@@ -6,12 +6,10 @@ RUN export HTTPS_PROXY=$HTTP_PROXY
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
 RUN apk add unzip && apk add wget
 RUN mkdir /app && cd /app
-RUN cd \app &&  \
-    wget https://github.com/JaidedAI/EasyOCR/releases/download/v1.3/zh_sim_g2.zip -o zh_sim_g2.zip && \
+RUN wget --proxy=on https://github.com/JaidedAI/EasyOCR/releases/download/v1.3/zh_sim_g2.zip -o zh_sim_g2.zip && \
     unzip zh_sim_g2.zip && \
     rm -f zh_sim_g2.zip
-RUN cd \app &&  \
-    wget https://github.com/JaidedAI/EasyOCR/releases/download/pre-v1.1.6/craft_mlt_25k.zip -o craft_mlt_25k.zip && \
+RUN wget --proxy=on https://github.com/JaidedAI/EasyOCR/releases/download/pre-v1.1.6/craft_mlt_25k.zip -o craft_mlt_25k.zip && \
     unzip craft_mlt_25k.zip && \
     rm -f craft_mlt_25k.zip
 
