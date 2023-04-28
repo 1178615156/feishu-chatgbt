@@ -134,6 +134,7 @@ class FeishuActor:
                 )
                 result = FeishuService().orc_service(image)
                 ack_text = "\n".join(result)
+                reply_message(message_id,f"orc:{ack_text}")
             if ack_text:
                 self.match(ack_text)
             else:
