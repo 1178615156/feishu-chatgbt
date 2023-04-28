@@ -104,7 +104,6 @@ class FeishuActor:
             if message.message_type == 'file':
                 msg_file = json.loads(message.content)
                 file_key = msg_file.get('file_key')
-                file_name = msg_file.get("file_name")
                 ack_text = (
                     im_service.message_resources.get()
                         .set_type("file")
@@ -122,8 +121,7 @@ class FeishuActor:
 
             if message.message_type == 'image':
                 msg_file = json.loads(message.content)
-                file_key = msg_file.get('file_key')
-                file_name = msg_file.get("file_name")
+                file_key = msg_file.get('image_key')
                 image = (
                     im_service.message_resources.get()
                         .set_type("image")
