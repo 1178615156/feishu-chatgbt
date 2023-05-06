@@ -1,5 +1,8 @@
 import string
 
+import requests
+from inscriptis import get_text
+
 
 def find_urls(text: str):
     '''
@@ -24,3 +27,15 @@ def find_urls(text: str):
             continue
         i += 1
     return results
+
+
+def get_url_text(raw_url):
+    content = requests.get(url=raw_url, headers={
+        'accept-encoding': 'gzip, deflate, br',
+        'accept-language': 'zh-CN,zh;q=0.9,en-US;q=0.8,en;q=0.7',
+        'cache-control': 'no-cache',
+        'pragma':'no-cache',
+        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36'
+    }).text
+    # content = urllib.request.urlopen(raw_url).read().decode('utf-8')
+    return get_text(content)

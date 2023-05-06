@@ -2,7 +2,7 @@ import dev_env
 
 print(dev_env)
 
-from utils import find_urls
+from utils import *
 from feishu_client import im_service, FeishuService
 
 
@@ -36,4 +36,7 @@ def test_img():
     print(result)
 
 
-test_img()
+# test_img()
+
+print(get_url_text(
+    'https://www.xiaohongshu.com/explore/6455b6cd00000000130063e9?app_platform=ios&app_version=7.85.2&share_from_user_hidden=true&type=video&xhsshare=WeixinSession&appuid=560c13c68a75e13c2edf29d0&apptime=1683344198'))

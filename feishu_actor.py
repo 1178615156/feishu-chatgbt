@@ -9,6 +9,7 @@ from multiprocessing.pool import ThreadPool
 from typing import List, Dict
 from urllib.parse import urlparse
 
+import requests
 from cachetools import TTLCache
 from inscriptis import get_text
 from larksuiteoapi import Config
@@ -132,7 +133,7 @@ class FeishuActor:
                 )
                 result = FeishuService().orc_service(image)
                 ack_text = "\n".join(result)
-                reply_message(message_id,f"orc:\n{ack_text}")
+                reply_message(message_id, f"orc:\n{ack_text}")
             if ack_text:
                 self.match(ack_text)
             else:
@@ -178,7 +179,7 @@ class FeishuActor:
             if 'feishu' in url:
                 text = text.replace(url, self.request_feishu_doc(url))
             if text.startswith("/url"):
-                text = text.replace(url, self.request_url(url))
+                text = text.replace(url, utils.get_url_text(url))
         if text.startswith("/url"):
             text = text[len("/url"):].strip()
         logger.info(f"ask:{text}")
@@ -197,6 +198,3 @@ class FeishuActor:
             # logger.exception(e)
         return raw_url
 
-    def request_url(self, raw_url):
-        content = urllib.request.urlopen(raw_url).read().decode('utf-8')
-        return get_text(content)
