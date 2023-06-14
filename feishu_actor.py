@@ -61,7 +61,8 @@ def feishu_event_handler(ctx: Context,
     if chat_type == 'group' and not mention_bot:
         logger.info(f"ignore :{message.content}")
         return
-
+    for mention in mention_bot:
+        mention.name = ''
     if uuid not in actor_cache:
         actor_cache[uuid] = FeishuActor(uuid=uuid)
         # title = get_user_name(open_id)
